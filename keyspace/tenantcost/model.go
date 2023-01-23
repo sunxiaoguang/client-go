@@ -74,7 +74,7 @@ func (c *Config) KVCPUCost(milliseconds int64) RequestUnit {
 // RequestCost returns the portion of the cost that can be calculated upfront:
 // the per-request cost (for both reads and writes) and the per-byte write cost.
 func (c *Config) RequestCost(bri RequestInfo) RequestUnit {
-	if isWrite, writeBytes := bri.IsWrite(); isWrite {
+	if isWrite, writeBytes, _ := bri.IsWrite(); isWrite {
 		return c.KVWriteCost(writeBytes)
 	}
 	return c.KVReadRequest
@@ -92,32 +92,35 @@ func (c *Config) ResponseCost(bri ResponseInfo) RequestUnit {
 // it's a write).
 type RequestInfo struct {
 	writeBytes int64
+	kvRequest  int64
 }
 
 // MakeRequestInfo extracts the relevant information from a BatchRequest.
 func MakeRequestInfo(req *tikvrpc.Request) RequestInfo {
+	var writeBytes, kvRequest int64
 	if !req.IsTxnWriteRequest() && !req.IsRawWriteRequest() {
-		return RequestInfo{writeBytes: -1}
+		writeBytes = -1
 	}
 
-	var writeBytes int64
 	switch r := req.Req.(type) {
 	case *kvrpcpb.PrewriteRequest:
 		writeBytes += int64(r.TxnSize)
+		kvRequest += int64(len(r.Mutations) + len(r.Secondaries) + 1)
 	case *kvrpcpb.CommitRequest:
 		writeBytes += int64(unsafe.Sizeof(r.Keys))
+		kvRequest += int64(len(r.Keys))
 	}
 
-	return RequestInfo{writeBytes: writeBytes}
+	return RequestInfo{writeBytes: writeBytes, kvRequest: kvRequest}
 }
 
 // IsWrite returns whether the request is a write, and if so the write size in
 // bytes.
-func (bri RequestInfo) IsWrite() (isWrite bool, writeBytes int64) {
+func (bri RequestInfo) IsWrite() (isWrite bool, writeBytes int64, kvRequest int64) {
 	if bri.writeBytes == -1 {
-		return false, 0
+		return false, 0, 0
 	}
-	return true, bri.writeBytes
+	return true, bri.writeBytes, bri.kvRequest
 }
 
 // TestingRequestInfo creates a RequestInfo for testing purposes.
@@ -133,8 +136,10 @@ func TestingRequestInfo(isWrite bool, writeBytes int64) RequestInfo {
 // calculated after-the-fact. Specifically: the read size (if the request is a
 // read).
 type ResponseInfo struct {
-	cpuTime   int64
-	readBytes int64
+	cpuTime     int64
+	readBytes   int64
+	coprCPUTime int64
+	kvRequest   int64
 }
 
 // MakeResponseInfo extracts the relevant information from a BatchResponse.
@@ -145,15 +150,19 @@ func MakeResponseInfo(resp *tikvrpc.Response) ResponseInfo {
 		detailV2     *kvrpcpb.ExecDetailsV2
 		detail       *kvrpcpb.ExecDetails
 		respDataSize int64
+		isCopr       bool
+		coprCPUTime  int64
+		kvRequest    int64
 	)
 	if resp.Resp == nil {
-		return ResponseInfo{cpuTime, readBytes}
+		return ResponseInfo{cpuTime, readBytes, coprCPUTime, kvRequest}
 	}
 	switch r := resp.Resp.(type) {
 	case *coprocessor.Response:
 		detailV2 = r.GetExecDetailsV2()
 		detail = r.GetExecDetails()
 		respDataSize = int64(r.Data.Size())
+		isCopr = true
 	case *tikvrpc.CopStreamResponse:
 		// streaming request returns io.EOF, so the first CopStreamResponse.Response maybe nil.
 		if r.Response != nil {
@@ -161,6 +170,7 @@ func MakeResponseInfo(resp *tikvrpc.Response) ResponseInfo {
 			detail = r.Response.GetExecDetails()
 		}
 		respDataSize = int64(r.Data.Size())
+		isCopr = true
 	case *kvrpcpb.GetResponse:
 		detailV2 = r.GetExecDetailsV2()
 	case *kvrpcpb.ScanResponse:
@@ -170,13 +180,22 @@ func MakeResponseInfo(resp *tikvrpc.Response) ResponseInfo {
 	if detailV2 != nil {
 		cpuTime = int64(detailV2.GetTimeDetail().GetProcessWallTimeMs())
 		readBytes = int64(detailV2.GetScanDetailV2().GetProcessedVersionsSize())
+		kvRequest = int64(detailV2.GetScanDetailV2().ProcessedVersions)
 	} else if detail != nil {
 		cpuTime = int64(detail.GetTimeDetail().GetProcessWallTimeMs())
 		// readBytes = detail.ScanDetail.Lock.ReadBytes + detail.ScanDetail.Write.ReadBytes + detail.ScanDetail.Write.ReadBytes
 		readBytes = respDataSize
+		scanDetail := detail.GetScanDetail()
+		kvRequest = int64(scanDetail.GetData().Processed +
+			scanDetail.GetLock().Processed +
+			scanDetail.GetWrite().Processed)
 	}
 
-	return ResponseInfo{cpuTime, readBytes}
+	if isCopr {
+		coprCPUTime = cpuTime
+	}
+
+	return ResponseInfo{cpuTime, readBytes, coprCPUTime, kvRequest}
 }
 
 // CPUTime returns the CPU time in milliseconds.
@@ -187,6 +206,14 @@ func (bri ResponseInfo) CPUTime() int64 {
 // ReadBytes returns the bytes read, or 0 if the request was a write.
 func (bri ResponseInfo) ReadBytes() int64 {
 	return bri.readBytes
+}
+
+func (bri ResponseInfo) CoprCPUTime() int64 {
+	return bri.coprCPUTime
+}
+
+func (bri ResponseInfo) KVRequest() int64 {
+	return bri.kvRequest
 }
 
 // TestingResponseInfo creates a ResponseInfo for testing purposes.

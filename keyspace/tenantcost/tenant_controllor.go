@@ -251,24 +251,34 @@ func (c *tenantSideCostController) OnResponse(
 	ctx context.Context, req RequestInfo, resp ResponseInfo,
 ) {
 	var (
-		isWrite, writeBytes      = req.IsWrite()
-		writeRU, readRU, kvCPURU float64
+		isWrite, writeBytes, kvRequest = req.IsWrite()
+		writeRU, readRU, kvCPURU       float64
+		readBytes, coprCPUMilliseconds int64
 	)
 	if isWrite {
 		kvCPUMilliseconds := resp.CPUTime()
 		writeRU = float64(c.costCfg.KVWriteCost(writeBytes))
 		kvCPURU = float64(c.costCfg.KVCPUCost(kvCPUMilliseconds))
 	} else {
-		readBytes := resp.ReadBytes()
+		readBytes = resp.ReadBytes()
 		kvCPUMilliseconds := resp.CPUTime()
+		coprCPUMilliseconds = resp.CoprCPUTime()
 		readRU = float64(c.costCfg.KVReadCost(readBytes))
 		kvCPURU = float64(c.costCfg.KVCPUCost(kvCPUMilliseconds))
+		kvRequest = resp.KVRequest()
 	}
 
 	if isWrite {
+		metrics.TiKVWriteBytes.Add(float64(writeBytes))
+		metrics.TiKVWriteKVBatch.Add(float64(1))
+		metrics.TiKVWriteKVRequest.Add(float64(kvRequest))
 		metrics.WriteByteRU.Observe(writeRU)
 		metrics.WriteKVCPURU.Observe(kvCPURU)
 	} else {
+		metrics.TiKVReadBytes.Add(float64(readBytes))
+		metrics.TiKVReadKVBatch.Add(float64(1))
+		metrics.TiKVReadKVRequest.Add(float64(kvRequest))
+		metrics.TiKVCoprocessorCPUTime.Add(float64(coprCPUMilliseconds) / 1000)
 		metrics.ReadByteRU.Observe(readRU)
 		metrics.ReadKVCPURU.Observe(kvCPURU)
 	}

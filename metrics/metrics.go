@@ -101,6 +101,15 @@ var (
 	TiKVReadRequestUnit   *prometheus.HistogramVec
 	TiKVWriteRequestUnit  *prometheus.HistogramVec
 	TiKVCommonRequestUnit *prometheus.HistogramVec
+
+	// PU Raw Input
+	TiKVCoprocessorCPUTime prometheus.Counter
+	TiKVReadKVBatch        prometheus.Counter
+	TiKVReadKVRequest      prometheus.Counter
+	TiKVReadBytes          prometheus.Counter
+	TiKVWriteKVBatch       prometheus.Counter
+	TiKVWriteKVRequest     prometheus.Counter
+	TiKVWriteBytes         prometheus.Counter
 )
 
 // Label constants.
@@ -124,6 +133,56 @@ const (
 )
 
 func initMetrics(namespace, subsystem string) {
+	// PU Raw Input
+	TiKVCoprocessorCPUTime = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "tikv_copr_time_seconds_total",
+		})
+
+	TiKVReadBytes = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "tikv_read_bytes_total",
+		})
+
+	TiKVReadKVBatch = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "tikv_read_kv_batch_total",
+		})
+
+	TiKVReadKVRequest = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "tikv_read_kv_request_total",
+		})
+
+	TiKVWriteBytes = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "tikv_write_bytes_total",
+		})
+
+	TiKVWriteKVBatch = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "tikv_write_kv_batch_total",
+		})
+
+	TiKVWriteKVRequest = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "tikv_write_kv_request_total",
+		})
+
 	// Multi-tenant
 	TiKVReadRequestUnit = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
@@ -696,6 +755,14 @@ func RegisterMetrics() {
 	prometheus.MustRegister(TiKVReadRequestUnit)
 	prometheus.MustRegister(TiKVWriteRequestUnit)
 	prometheus.MustRegister(TiKVCommonRequestUnit)
+	// PU raw input
+	prometheus.MustRegister(TiKVCoprocessorCPUTime)
+	prometheus.MustRegister(TiKVReadBytes)
+	prometheus.MustRegister(TiKVReadKVRequest)
+	prometheus.MustRegister(TiKVReadKVBatch)
+	prometheus.MustRegister(TiKVWriteBytes)
+	prometheus.MustRegister(TiKVWriteKVRequest)
+	prometheus.MustRegister(TiKVWriteKVBatch)
 }
 
 // readCounter reads the value of a prometheus.Counter.

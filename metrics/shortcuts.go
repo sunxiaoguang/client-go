@@ -142,6 +142,14 @@ var (
 	WriteByteRU  prometheus.Observer
 	WriteKVCPURU prometheus.Observer
 	PodCPURU     prometheus.Observer
+
+	ReadBytes      prometheus.Observer
+	ReadKVBatch    prometheus.Observer
+	ReadKVRequest  prometheus.Observer
+	WriteBytes     prometheus.Observer
+	WriteKVBatch   prometheus.Observer
+	WriteKVRequest prometheus.Observer
+	CoprCPUTime    prometheus.Observer
 )
 
 func initShortcuts() {
