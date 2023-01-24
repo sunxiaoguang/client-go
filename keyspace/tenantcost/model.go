@@ -1,8 +1,6 @@
 package tenantcost
 
 import (
-	"unsafe"
-
 	"github.com/pingcap/kvproto/pkg/coprocessor"
 	"github.com/pingcap/kvproto/pkg/kvrpcpb"
 	"github.com/tikv/client-go/v2/tikvrpc"
@@ -104,11 +102,13 @@ func MakeRequestInfo(req *tikvrpc.Request) RequestInfo {
 
 	switch r := req.Req.(type) {
 	case *kvrpcpb.PrewriteRequest:
-		writeBytes += int64(r.TxnSize)
+		for _, mutation := range r.Mutations {
+			writeBytes += int64(len(mutation.Key) + len(mutation.Value))
+		}
 		kvRequest += int64(len(r.Mutations) + len(r.Secondaries) + 1)
-	case *kvrpcpb.CommitRequest:
-		writeBytes += int64(unsafe.Sizeof(r.Keys))
-		kvRequest += int64(len(r.Keys))
+		//case *kvrpcpb.CommitRequest:
+		//writeBytes += int64(unsafe.Sizeof(r.Keys))
+		//kvRequest += int64(len(r.Keys))
 	}
 
 	return RequestInfo{writeBytes: writeBytes, kvRequest: kvRequest}
