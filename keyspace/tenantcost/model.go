@@ -91,6 +91,7 @@ func (c *Config) ResponseCost(bri ResponseInfo) RequestUnit {
 type RequestInfo struct {
 	writeBytes int64
 	kvRequest  int64
+	cmdType    tikvrpc.CmdType
 }
 
 // MakeRequestInfo extracts the relevant information from a BatchRequest.
@@ -111,7 +112,7 @@ func MakeRequestInfo(req *tikvrpc.Request) RequestInfo {
 		//kvRequest += int64(len(r.Keys))
 	}
 
-	return RequestInfo{writeBytes: writeBytes, kvRequest: kvRequest}
+	return RequestInfo{writeBytes: writeBytes, kvRequest: kvRequest, cmdType: req.Type}
 }
 
 // IsWrite returns whether the request is a write, and if so the write size in

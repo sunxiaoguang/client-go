@@ -103,13 +103,13 @@ var (
 	TiKVCommonRequestUnit *prometheus.HistogramVec
 
 	// PU Raw Input
-	TiKVCoprocessorCPUTime prometheus.Counter
-	TiKVReadKVBatch        prometheus.Counter
-	TiKVReadKVRequest      prometheus.Counter
-	TiKVReadBytes          prometheus.Counter
-	TiKVWriteKVBatch       prometheus.Counter
-	TiKVWriteKVRequest     prometheus.Counter
-	TiKVWriteBytes         prometheus.Counter
+	TiKVCoprocessorCPUTime *prometheus.CounterVec
+	TiKVReadKVBatch        *prometheus.CounterVec
+	TiKVReadKVRequest      *prometheus.CounterVec
+	TiKVReadBytes          *prometheus.CounterVec
+	TiKVWriteKVBatch       *prometheus.CounterVec
+	TiKVWriteKVRequest     *prometheus.CounterVec
+	TiKVWriteBytes         *prometheus.CounterVec
 )
 
 // Label constants.
@@ -134,54 +134,54 @@ const (
 
 func initMetrics(namespace, subsystem string) {
 	// PU Raw Input
-	TiKVCoprocessorCPUTime = prometheus.NewCounter(
+	TiKVCoprocessorCPUTime = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: subsystem,
 			Name:      "tikv_copr_time_seconds_total",
-		})
+		}, []string{LblType})
 
-	TiKVReadBytes = prometheus.NewCounter(
+	TiKVReadBytes = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: subsystem,
 			Name:      "tikv_read_bytes_total",
-		})
+		}, []string{LblType})
 
-	TiKVReadKVBatch = prometheus.NewCounter(
+	TiKVReadKVBatch = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: subsystem,
 			Name:      "tikv_read_kv_batch_total",
-		})
+		}, []string{LblType})
 
-	TiKVReadKVRequest = prometheus.NewCounter(
+	TiKVReadKVRequest = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: subsystem,
 			Name:      "tikv_read_kv_request_total",
-		})
+		}, []string{LblType})
 
-	TiKVWriteBytes = prometheus.NewCounter(
+	TiKVWriteBytes = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: subsystem,
 			Name:      "tikv_write_bytes_total",
-		})
+		}, []string{LblType})
 
-	TiKVWriteKVBatch = prometheus.NewCounter(
+	TiKVWriteKVBatch = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: subsystem,
 			Name:      "tikv_write_kv_batch_total",
-		})
+		}, []string{LblType})
 
-	TiKVWriteKVRequest = prometheus.NewCounter(
+	TiKVWriteKVRequest = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: subsystem,
 			Name:      "tikv_write_kv_request_total",
-		})
+		}, []string{LblType})
 
 	// Multi-tenant
 	TiKVReadRequestUnit = prometheus.NewHistogramVec(

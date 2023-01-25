@@ -268,17 +268,18 @@ func (c *tenantSideCostController) OnResponse(
 		kvRequest = resp.KVRequest()
 	}
 
+	cmd := req.cmdType.String()
 	if isWrite {
-		metrics.TiKVWriteBytes.Add(float64(writeBytes))
-		metrics.TiKVWriteKVBatch.Add(float64(1))
-		metrics.TiKVWriteKVRequest.Add(float64(kvRequest))
+		metrics.TiKVWriteBytes.WithLabelValues(cmd).Add(float64(writeBytes))
+		metrics.TiKVWriteKVBatch.WithLabelValues(cmd).Add(float64(1))
+		metrics.TiKVWriteKVRequest.WithLabelValues(cmd).Add(float64(kvRequest))
 		metrics.WriteByteRU.Observe(writeRU)
 		metrics.WriteKVCPURU.Observe(kvCPURU)
 	} else {
-		metrics.TiKVReadBytes.Add(float64(readBytes))
-		metrics.TiKVReadKVBatch.Add(float64(1))
-		metrics.TiKVReadKVRequest.Add(float64(kvRequest))
-		metrics.TiKVCoprocessorCPUTime.Add(float64(coprCPUMilliseconds) / 1000)
+		metrics.TiKVReadBytes.WithLabelValues(cmd).Add(float64(readBytes))
+		metrics.TiKVReadKVBatch.WithLabelValues(cmd).Add(float64(1))
+		metrics.TiKVReadKVRequest.WithLabelValues(cmd).Add(float64(kvRequest))
+		metrics.TiKVCoprocessorCPUTime.WithLabelValues(cmd).Add(float64(coprCPUMilliseconds) / 1000)
 		metrics.ReadByteRU.Observe(readRU)
 		metrics.ReadKVCPURU.Observe(kvCPURU)
 	}
