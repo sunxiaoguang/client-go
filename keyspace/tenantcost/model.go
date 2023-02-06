@@ -174,8 +174,11 @@ func MakeResponseInfo(resp *tikvrpc.Response) ResponseInfo {
 		isCopr = true
 	case *kvrpcpb.GetResponse:
 		detailV2 = r.GetExecDetailsV2()
+	case *kvrpcpb.BatchGetResponse:
+		detailV2 = r.GetExecDetailsV2()
 	case *kvrpcpb.ScanResponse:
 		readBytes = int64(r.Size())
+		kvRequest = int64(len(r.Pairs))
 	}
 
 	if detailV2 != nil {
