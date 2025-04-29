@@ -691,6 +691,10 @@ type RUDetails struct {
 	readRU         *uatomic.Float64
 	writeRU        *uatomic.Float64
 	ruWaitDuration *uatomic.Duration
+	readRPC        *uatomic.Int64
+	readBytes      *uatomic.Int64
+	writeRPC       *uatomic.Int64
+	writeBytes     *uatomic.Int64
 }
 
 // NewRUDetails creates a new RUDetails.
@@ -699,16 +703,24 @@ func NewRUDetails() *RUDetails {
 		readRU:         uatomic.NewFloat64(0),
 		writeRU:        uatomic.NewFloat64(0),
 		ruWaitDuration: uatomic.NewDuration(0),
+		readRPC:        uatomic.NewInt64(0),
+		readBytes:      uatomic.NewInt64(0),
+		writeRPC:       uatomic.NewInt64(0),
+		writeBytes:     uatomic.NewInt64(0),
 	}
 }
 
 // NewRUDetails creates a new RUDetails with specifical values.
 // This function is used in tidb's unit test.
-func NewRUDetailsWith(rru, wru float64, waitDur time.Duration) *RUDetails {
+func NewRUDetailsWith(rru, wru float64, waitDur time.Duration, readRPC, readBytes, writeRPC, writeBytes int64) *RUDetails {
 	return &RUDetails{
 		readRU:         uatomic.NewFloat64(rru),
 		writeRU:        uatomic.NewFloat64(wru),
 		ruWaitDuration: uatomic.NewDuration(waitDur),
+		readRPC:        uatomic.NewInt64(readRPC),
+		writeRPC:       uatomic.NewInt64(writeRPC),
+		readBytes:      uatomic.NewInt64(readBytes),
+		writeBytes:     uatomic.NewInt64(writeBytes),
 	}
 }
 
@@ -718,6 +730,10 @@ func (rd *RUDetails) Clone() *RUDetails {
 		readRU:         uatomic.NewFloat64(rd.readRU.Load()),
 		writeRU:        uatomic.NewFloat64(rd.writeRU.Load()),
 		ruWaitDuration: uatomic.NewDuration(rd.ruWaitDuration.Load()),
+		writeBytes:     uatomic.NewInt64(rd.writeBytes.Load()),
+		readBytes:      uatomic.NewInt64(rd.readBytes.Load()),
+		writeRPC:       uatomic.NewInt64(rd.writeRPC.Load()),
+		readRPC:        uatomic.NewInt64(rd.readRPC.Load()),
 	}
 }
 
@@ -730,7 +746,7 @@ func (rd *RUDetails) Merge(other *RUDetails) {
 
 // String implements fmt.Stringer interface.
 func (rd *RUDetails) String() string {
-	return fmt.Sprintf("RRU:%f, WRU:%f, WaitDuration:%v", rd.readRU.Load(), rd.writeRU.Load(), rd.ruWaitDuration.Load())
+	return fmt.Sprintf("Read RU:%f/RPC:%d/Bytes:%d, Write RU:%f/RPC:%d/Bytes:%d, WaitDuration:%v,", rd.readRU.Load(), rd.readRPC.Load(), rd.readBytes.Load(), rd.writeRU.Load(), rd.writeRPC.Load(), rd.writeBytes.Load(), rd.ruWaitDuration.Load())
 }
 
 // RRU returns the read RU.
@@ -741,6 +757,26 @@ func (rd *RUDetails) RRU() float64 {
 // WRU returns the write RU.
 func (rd *RUDetails) WRU() float64 {
 	return rd.writeRU.Load()
+}
+
+// ReadRPC returns the number of read RPC.
+func (rd *RUDetails) ReadRPC() int64 {
+	return rd.readRPC.Load()
+}
+
+// WriteRPC returns the number of write RPC.
+func (rd *RUDetails) WriteRPC() int64 {
+	return rd.writeRPC.Load()
+}
+
+// ReadBytes returns the number of read bytes.
+func (rd *RUDetails) ReadBytes() int64 {
+	return rd.readBytes.Load()
+}
+
+// WriteBytes returns the number of write bytes.
+func (rd *RUDetails) WriteBytes() int64 {
+	return rd.writeBytes.Load()
 }
 
 // RUWaitDuration returns the time duration waiting for available RU.
@@ -755,5 +791,9 @@ func (rd *RUDetails) Update(consumption *rmpb.Consumption, waitDuration time.Dur
 	}
 	rd.readRU.Add(consumption.RRU)
 	rd.writeRU.Add(consumption.WRU)
+	rd.readRPC.Add(int64(consumption.KvReadRpcCount))
+	rd.readBytes.Add(int64(consumption.ReadBytes))
+	rd.writeRPC.Add(int64(consumption.KvWriteRpcCount))
+	rd.writeBytes.Add(int64(consumption.WriteBytes))
 	rd.ruWaitDuration.Add(waitDuration)
 }
