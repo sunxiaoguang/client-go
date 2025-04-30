@@ -688,25 +688,29 @@ func (rd *ResolveLockDetail) Merge(resolveLock *ResolveLockDetail) {
 
 // RUDetails contains RU detail info.
 type RUDetails struct {
-	readRU         *uatomic.Float64
-	writeRU        *uatomic.Float64
-	ruWaitDuration *uatomic.Duration
-	readRPC        *uatomic.Int64
-	readBytes      *uatomic.Int64
-	writeRPC       *uatomic.Int64
-	writeBytes     *uatomic.Int64
+	readRU          *uatomic.Float64
+	writeRU         *uatomic.Float64
+	ruWaitDuration  *uatomic.Duration
+	readRPC         *uatomic.Int64
+	readBytes       *uatomic.Int64
+	writeRPC        *uatomic.Int64
+	writeBytes      *uatomic.Int64
+	totalCPUTime    *uatomic.Float64
+	sqlLayerCPUTime *uatomic.Float64
 }
 
 // NewRUDetails creates a new RUDetails.
 func NewRUDetails() *RUDetails {
 	return &RUDetails{
-		readRU:         uatomic.NewFloat64(0),
-		writeRU:        uatomic.NewFloat64(0),
-		ruWaitDuration: uatomic.NewDuration(0),
-		readRPC:        uatomic.NewInt64(0),
-		readBytes:      uatomic.NewInt64(0),
-		writeRPC:       uatomic.NewInt64(0),
-		writeBytes:     uatomic.NewInt64(0),
+		readRU:          uatomic.NewFloat64(0),
+		writeRU:         uatomic.NewFloat64(0),
+		ruWaitDuration:  uatomic.NewDuration(0),
+		readRPC:         uatomic.NewInt64(0),
+		readBytes:       uatomic.NewInt64(0),
+		writeRPC:        uatomic.NewInt64(0),
+		writeBytes:      uatomic.NewInt64(0),
+		totalCPUTime:    uatomic.NewFloat64(0),
+		sqlLayerCPUTime: uatomic.NewFloat64(0),
 	}
 }
 
@@ -714,26 +718,30 @@ func NewRUDetails() *RUDetails {
 // This function is used in tidb's unit test.
 func NewRUDetailsWith(rru, wru float64, waitDur time.Duration, readRPC, readBytes, writeRPC, writeBytes int64) *RUDetails {
 	return &RUDetails{
-		readRU:         uatomic.NewFloat64(rru),
-		writeRU:        uatomic.NewFloat64(wru),
-		ruWaitDuration: uatomic.NewDuration(waitDur),
-		readRPC:        uatomic.NewInt64(readRPC),
-		writeRPC:       uatomic.NewInt64(writeRPC),
-		readBytes:      uatomic.NewInt64(readBytes),
-		writeBytes:     uatomic.NewInt64(writeBytes),
+		readRU:          uatomic.NewFloat64(rru),
+		writeRU:         uatomic.NewFloat64(wru),
+		ruWaitDuration:  uatomic.NewDuration(waitDur),
+		readRPC:         uatomic.NewInt64(readRPC),
+		writeRPC:        uatomic.NewInt64(writeRPC),
+		readBytes:       uatomic.NewInt64(readBytes),
+		writeBytes:      uatomic.NewInt64(writeBytes),
+		totalCPUTime:    uatomic.NewFloat64(0),
+		sqlLayerCPUTime: uatomic.NewFloat64(0),
 	}
 }
 
 // Clone implements the RuntimeStats interface.
 func (rd *RUDetails) Clone() *RUDetails {
 	return &RUDetails{
-		readRU:         uatomic.NewFloat64(rd.readRU.Load()),
-		writeRU:        uatomic.NewFloat64(rd.writeRU.Load()),
-		ruWaitDuration: uatomic.NewDuration(rd.ruWaitDuration.Load()),
-		writeBytes:     uatomic.NewInt64(rd.writeBytes.Load()),
-		readBytes:      uatomic.NewInt64(rd.readBytes.Load()),
-		writeRPC:       uatomic.NewInt64(rd.writeRPC.Load()),
-		readRPC:        uatomic.NewInt64(rd.readRPC.Load()),
+		readRU:          uatomic.NewFloat64(rd.readRU.Load()),
+		writeRU:         uatomic.NewFloat64(rd.writeRU.Load()),
+		ruWaitDuration:  uatomic.NewDuration(rd.ruWaitDuration.Load()),
+		writeBytes:      uatomic.NewInt64(rd.writeBytes.Load()),
+		readBytes:       uatomic.NewInt64(rd.readBytes.Load()),
+		writeRPC:        uatomic.NewInt64(rd.writeRPC.Load()),
+		readRPC:         uatomic.NewInt64(rd.readRPC.Load()),
+		totalCPUTime:    uatomic.NewFloat64(rd.totalCPUTime.Load()),
+		sqlLayerCPUTime: uatomic.NewFloat64(rd.sqlLayerCPUTime.Load()),
 	}
 }
 
@@ -742,11 +750,17 @@ func (rd *RUDetails) Merge(other *RUDetails) {
 	rd.readRU.Add(other.readRU.Load())
 	rd.writeRU.Add(other.writeRU.Load())
 	rd.ruWaitDuration.Add(other.ruWaitDuration.Load())
+	rd.readRPC.Add(other.readRPC.Load())
+	rd.readBytes.Add(other.readBytes.Load())
+	rd.writeRPC.Add(other.writeRPC.Load())
+	rd.writeBytes.Add(other.writeBytes.Load())
+	rd.totalCPUTime.Add(other.totalCPUTime.Load())
+	rd.sqlLayerCPUTime.Add(other.sqlLayerCPUTime.Load())
 }
 
 // String implements fmt.Stringer interface.
 func (rd *RUDetails) String() string {
-	return fmt.Sprintf("Read RU:%f/RPC:%d/Bytes:%d, Write RU:%f/RPC:%d/Bytes:%d, WaitDuration:%v,", rd.readRU.Load(), rd.readRPC.Load(), rd.readBytes.Load(), rd.writeRU.Load(), rd.writeRPC.Load(), rd.writeBytes.Load(), rd.ruWaitDuration.Load())
+	return fmt.Sprintf("Read RU:%f/RPC:%d/Bytes:%d, Write RU:%f/RPC:%d/Bytes:%d, Total CPU Time(ms): %f, SQL Layer CPU Time(ms): %f, WaitDuration:%v,", rd.readRU.Load(), rd.readRPC.Load(), rd.readBytes.Load(), rd.writeRU.Load(), rd.writeRPC.Load(), rd.writeBytes.Load(), rd.totalCPUTime.Load(), rd.sqlLayerCPUTime.Load(), rd.ruWaitDuration.Load())
 }
 
 // RRU returns the read RU.
@@ -779,6 +793,16 @@ func (rd *RUDetails) WriteBytes() int64 {
 	return rd.writeBytes.Load()
 }
 
+// TotalCPUTime returns the total number of milliseconds used
+func (rd *RUDetails) TotalCPUTime() float64 {
+	return rd.totalCPUTime.Load()
+}
+
+// SQLCPUTime returns the total number of milliseconds used
+func (rd *RUDetails) SQLLayerCPUTime() float64 {
+	return rd.sqlLayerCPUTime.Load()
+}
+
 // RUWaitDuration returns the time duration waiting for available RU.
 func (rd *RUDetails) RUWaitDuration() time.Duration {
 	return rd.ruWaitDuration.Load()
@@ -796,4 +820,6 @@ func (rd *RUDetails) Update(consumption *rmpb.Consumption, waitDuration time.Dur
 	rd.writeRPC.Add(int64(consumption.KvWriteRpcCount))
 	rd.writeBytes.Add(int64(consumption.WriteBytes))
 	rd.ruWaitDuration.Add(waitDuration)
+	rd.totalCPUTime.Add(consumption.TotalCpuTimeMs)
+	rd.sqlLayerCPUTime.Add(consumption.SqlLayerCpuTimeMs)
 }
